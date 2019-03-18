@@ -8,6 +8,8 @@ import com.profesorfalken.jpowershell.PowerShellResponse;
 import cps.nicbond.ironic.other.NicDetailedRO;
 import cps.nicbond.ironic.util.SSHHelperForWin;
 import cps.nicbond.ironic.util.SSHResInfo;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.json.JSONArray;
 import org.json.JSONObject
         ;
@@ -29,10 +31,10 @@ import net.sf.json.JSONObject;*/
  * LoadBalancingAlgorithm(负载均衡模式) : Dynamic(5) TransportPorts(0) </b>
  */
 public class PowerShellInspur {
-    private static final Logger logger = Logger.getLogger(PowerShellInspur.class);
+
     private static final String TeamingMode = "SwitchIndependent";
     private static final String LoadBalancingAlgorithm = "TransportPorts";
-
+    private static final Log logger = LogFactory.getLog(PowerShellInspur.class);
     public static void main(String[] args) {
         // List<NicDetailedRO> list = Get_NetAdapter("192.168.136.129", "administrator",
         // "1qaz2wsxa?");

@@ -93,4 +93,7 @@ DOS命令
 
 
 netsh interface ip set address ebond0 static  172.23.60.206   255.255.255.0 172.23.60.254  1
- 
+
+
+查看powershell版本
+$PSVersionTable

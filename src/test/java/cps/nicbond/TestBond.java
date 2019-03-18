@@ -1,5 +1,7 @@
 package cps.nicbond;
 
+import com.profesorfalken.jpowershell.PowerShell;
+import com.profesorfalken.jpowershell.PowerShellResponse;
 import cps.nicbond.ironic.imp.PowerShellInspur;
 import cps.nicbond.ironic.other.NicDetailedRO;
 import org.junit.Test;
@@ -16,10 +18,17 @@ public class TestBond {
 
     @Test
     public void getNic() {
-        String ip = "192.168.136.139";
+        String ip = "192.168.195.158";
         String username = "administrator";
-        String password = "Lc13yfwpW";
+        String password = "123456a?";
         List<NicDetailedRO> nics = PowerShellInspur.Get_NetAdapter(ip, username, password);
         System.out.println(nics);
     }
+    @Test
+    public void getNic3() {
+        PowerShellResponse response = PowerShell.executeSingleCommand("Get-Process");
+
+        System.out.println(response.getCommandOutput());
+    }
+
 }

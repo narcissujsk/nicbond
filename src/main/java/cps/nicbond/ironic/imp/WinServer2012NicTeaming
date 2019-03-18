@@ -1,0 +1,96 @@
+Windows Server 2012 NIC Teaming 介绍及注意事项
+
+Windows Server 2012 NIC Teaming 也称作 负载平衡/故障转移 （LBFO)。
+主要功能就是带宽聚合，负载均衡以及故障转移。
+Windows Server 2012 首次内置了这个功能，所以配置NIC Teaming不再需要网卡厂商的驱动程序上配置。
+
+一，NIC Teaming的要求及限制
+1.      在Hyper-V 主机上支持最多32个网卡组成一个Team.
+2.      在VM上支持最多2个网卡组成一个Team。
+3.      在VM 上做NIC TEAMING 只支持“Switch Independent configuration / Address Hash distribution”模式。
+4.      在VM上做TEAMING 不会影响Live Migration.
+5.      只能用以太网卡组成TEAM，不支持WWAN,WLAN,Bluetooth.
+6.      不能对在hyper-V主机上的虚拟网卡做Team。
+7.      对于两个速度不一样的网卡，不支持使用active/active 模式。可以用一个 活动（active）,一个备用（standby）模式。NIC TEAMING的分发模式不会基于网卡的速度来分发，一个包含10Gbps 的网卡和一个100Mbps网卡的TEAM，可能会给两块网卡各发送一半的流量。但是可以让10Gbps网卡作为活动，100Mbps网卡作为备用。
+8.      不能在Team之上再建Team。并且不能将第三方的TEAM 方案和Windows Server 2012 的Teaming 混合使用。
+ 
+ 
+具体还有很多细节，这个官方文档上写的挺详细的，值得一读：
+ 
+http://www.microsoft.com/en-us/download/details.aspx?id=30160 
+二，NIC Teaming 的配置模式以及负载平衡模式
+1. 配置模式
+  配置模式有3种：
+Switch-independent 
+   交换机上不需要做任何配置
+Static teaming (Switch-dependent teaming)
+   需要在交换机和主机上都做配置
+LACP (Switch-dependent teaming)
+   少数交换机上实现自动配置，在大多数交换机上需要在端口上启用LACP
+ 
+后两种Switch-dependent teaming 模式可以让入站和出站带宽达到Team成员适配器的聚合带宽，因为所有的Team 成员适配器是被看做一条大的通道。
+Switch-independent 模式中，组成Team的网络适配器可以连接在不同的交换机上。
+Switch-dependent teaming模式则要求，组成Team的适配器都必须连接在同一个物理交换机上。
+  
+2. 负载平衡模式
+Load balancing mode 有两种：
+Address Hashing
+这种算法会基于数据包的地址组成部（源，目标的MAC, IP, 以及端口号）分创建一个哈希值，然后把具有这个哈希值的数据包分配到可用的NIC上。通常这种分配方式就足够在可用的NIC上建立有效负载。        
+Hyper-V switch port
+因为每个VM都有独立的MAC地址，所以VM的MAC地址或者VM所连接的Hyper-V switch 端口可以做为划分流量的基础，交换机在分发入站流量的时候，可以基于目标Mac 地址（VM Mac地址）来在多条链路上分发。然后如果HOST上的VM数量较少时，这种分发方式不能充分做到负载均衡，因为同一时间内，只有一个NIC在发送一个VM上的流量，并且单一VM的带宽也被限制在单一NIC的可用带宽之内。但这种方式在使用VMQs的时候非常有用。
+ 
+
+3.如何选择不同的配置方法 （NIC Teaming Configuration）和数据分发算法(Load distribution algorithms)
+ 
+ Switch Independent configuration / Address Hash distribution
+这种配置方式会通过选用的地址哈希来分发送数据包到所有活动的NIC成员上，因为在路由的时候，一个IP地址只能关联一个MAC地址，所以这种方式在接收入站通信时，只能通过一个TEAM 成员来接收。这也意味着入站通信不会超过TEAM 中一个成员的带宽。
+这种配置方式最适合用在如下的情况里：
+需要考虑在不同的物理交换机上做Team；需要用 活动/备用 （active/standby）模式；Team VM；在服务器上跑的工作流有大量出站负载，少量入站负载，例如IIS。
+ 
+ 
+Switch Independent configuration / Hyper-V Port distribution 
+这种方式会基于Hyper-V 交换机的端口号来在所有活动的Team 成员（NIC）上分发流量。每个Hyper-V端口的带宽不会大于一个TEAM 成员（NIC）的带宽。
+由于Hyper-V 端口号是和Team NIC 绑定的，所以同一个VM上的入站和出站流量都用的是同一个Team NIC。  
+这种配置方式最适合用在如下的情况里（同时）： 
+VM的数量远大于Team 成员的数量，可以接受VM的带宽被限制在一个TEAM NIC成员的可用带宽之内。
+ 
+ 
+ 
+Switch Dependent configuration / Address Hash distribution
+这种配置方式会通过选用的地址哈希来分发送数据包到所有活动的NIC成员上。和所有switch dependent configurations 一样，交换机来决定如何在TEAM NIC上分发入站通信。
+这种配置方式最适合用在如下的情况里（同时）： 
+在可以保证使用相同交换机上做TEAM时，达到最大性能；在Hyper-V 交换机下做Teaming,VM的带宽需要大于一个TEAM NIC 的可用带宽。
+ 
+ 
+Switch Dependent configuration / Hyper-V Port distribution 
+这种方式会基于Hyper-V 交换机的端口号来在所有活动的Team 成员（NIC）上分发流量。每个Hyper-V端口的带宽不会大于一个TEAM 成员（NIC）的带宽。和所有switch dependent configurations 一样，交换机来决定如何在TEAM NIC上分发入站通信。
+这种配置方式最适合用在如下的情况里 （同时）： 
+VM的数量远大于TEAM NIC 的数量；需要用使用特定协议（如LACP） 而对TEAM方式有要求；限制VM的带宽不能大于TEAM 成员中一个NIC的带宽。
+
+
+
+
+# Remove the static ip
+Remove-NetIPAddress -InterfaceAlias $myAdapter
+
+# Remove the default gateway
+Remove-NetRoute -InterfaceAlias $myAdapter
+
+# Add the new IP and gateway
+New-NetIPAddress -InterfaceAlias $myAdapter -AddressFamily IPv4 10.1.2.4 -PrefixLength 24 -Type Unicast -DefaultGateway 10.1.2.255
+
+设置网卡ip
+New-NetIPAddress -InterfaceAlias nics -IPAddress 192.168.1.1 -PrefixLength 24  -DefaultGateway 192.168.1.255
+
+设置dns
+Set-DnsClientServerAddress -InterfaceAlias ebond0 -ServerAddresses 10.30.30.7
+
+
+
+
+windows设置IP地址
+DOS命令
+
+
+netsh interface ip set address ebond0 static  172.23.60.206   255.255.255.0 172.23.60.254  1
+ 
